@@ -1,6 +1,4 @@
-# Alps
-
-AI Lab Pipeline Starter
+# Wise Alps DreamBooth 
 
 ![Python](https://img.shields.io/pypi/pyversions/alps?logo=python&logoColor=%2523959DA5)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)

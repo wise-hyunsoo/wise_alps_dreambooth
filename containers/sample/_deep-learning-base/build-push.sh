@@ -1,2 +1,2 @@
-docker buildx build --platform linux/amd64 --load --tag asia-northeast3-docker.pkg.dev/dev-ai-project-357507/kfp-components/custom-deeplearning-tf-cpu.2-12.py310:latest .
-docker push asia-northeast3-docker.pkg.dev/dev-ai-project-357507/kfp-components/custom-deeplearning-tf-cpu.2-12.py310:latest
+docker buildx build --platform linux/amd64 --load --tag us-central1-docker.pkg.dev/dev-ai-project-357507/kfp-components/wise-alps-diffusion.py311:latest .
+docker push us-central1-docker.pkg.dev/dev-ai-project-357507/kfp-components/wise-alps-diffusion.py311:latest
