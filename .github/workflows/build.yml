@@ -1,0 +1,143 @@
+name: Submit
+
+permissions:
+  id-token: write
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      workload-identity-provider:
+        required: true
+        type: string
+      service-account:
+        required: true
+        type: string
+      container-registry:
+        required: true
+        type: string
+      container-repository:
+        required: true
+        type: string
+      env:
+        required: true
+        type: string
+      containerized-python-components:
+        required: true
+        type: string
+      head-ref:
+        required: false
+        type: string
+
+jobs:
+  build-compile-upload:
+#    # 이미지 사이즈가 너무 커서 build 스텝에서 오류 발생 시 self-hosted runner 사용
+#    # https://podotree.atlassian.net/wiki/spaces/RTC/pages/3263660037/UMID+Github+Actions
+#    runs-on:
+#      group: larger-runners
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.head-ref }}
+
+      - name: Set up python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Setup Poetry
+        uses: Gr1N/setup-poetry@v8
+
+      - id: cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry/virtualenvs
+          key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
+
+      - name: Install Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: poetry install
+
+      - name: Set Environment Variables
+        run: |
+          echo "ENVIRONMENT=${{ inputs.env }}" >> $GITHUB_ENV
+          echo "CONTAINER_REPOSITORY=${{ inputs.container-repository }}" >> $GITHUB_ENV
+          PROJECT_NAME=$(poetry run python -c "with open('./pyproject.toml', 'rb') as f: project_toml = __import__('tomli').load(f);print(project_toml['tool']['poetry']['name'])")
+          echo "PROJECT_NAME=${PROJECT_NAME}" >> $GITHUB_ENV
+
+          export PYTHONPATH="${PYTHONPATH}:../:./components"
+          read -a COMPONENTS <<< $(poetry run python scripts/support/find_containerized_python_components.py 2>&1)
+          for component in "${COMPONENTS[@]}"
+            do
+              IFS=,
+              set $component
+              FILE_ROOT=$2
+              export PYTHONPATH="${PYTHONPATH}:./${FILE_ROOT}"
+            done
+
+          echo "PYTHONPATH=${PYTHONPATH}" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: |
+          echo "@@@@@@@@@@@@@@@ ENVIRONMENT: ${ENVIRONMENT}"
+          echo "@@@@@@@@@@@@@@@ CONTAINER_REPOSITORY: ${CONTAINER_REPOSITORY}"
+          echo "@@@@@@@@@@@@@@@ PROJECT_NAME: ${PROJECT_NAME}"
+          echo "@@@@@@@@@@@@@@@ PYTHONPATH: ${PYTHONPATH}"
+          
+          poetry run pytest .
+
+      - id: auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          token_format: access_token
+          workload_identity_provider: ${{ inputs.workload-identity-provider }}
+          service_account: ${{ inputs.service-account }}
+          create_credentials_file: true
+
+      - name: Login to Artifact Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ inputs.container-registry }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - name: Build & Push Containerized Python Components
+        run: |
+          CONTAINERIZED_PYTHON_COMPONENTS="${{ inputs.containerized-python-components }}"
+          IFS=' ' read -ra COMPONENT_ARRAY <<< "$CONTAINERIZED_PYTHON_COMPONENTS"
+          for component in "${COMPONENT_ARRAY[@]}"; do
+            IFS=',' read -ra component_parts <<< "$component"
+        
+            FILE_NAME=${component_parts[0]}
+            FILE_ROOT=${component_parts[1]}
+            IMAGE_NAME_TAG="${component_parts[2]//\{PROJECT_NAME\}/$PROJECT_NAME}"
+            # IMAGE_NAME_TAG=$(echo ${component_parts[2]} | sed "s/{PROJECT_NAME}/${PROJECT_NAME}/")
+
+            echo "FILE_NAME: ${FILE_NAME}"
+            echo "FILE_ROOT: ${FILE_ROOT}"
+            echo "IMAGE_NAME_TAG: ${IMAGE_NAME_TAG}"
+
+            # Build & push containerized python components
+            poetry run kfp components build $FILE_ROOT/ --component-filepattern $FILE_NAME --overwrite-dockerfile --no-build-image
+          
+            echo "" >> $FILE_ROOT/Dockerfile
+            echo "ENV ENVIRONMENT=${{ inputs.env }}" >> $FILE_ROOT/Dockerfile
+          
+            poetry run docker build --load --tag $CONTAINER_REPOSITORY/$IMAGE_NAME_TAG $FILE_ROOT/
+            poetry run docker push $CONTAINER_REPOSITORY/$IMAGE_NAME_TAG
+          
+            rm -f $FILE_ROOT/.dockerignore $FILE_ROOT/Dockerfile $FILE_ROOT/kfp_config.ini $FILE_ROOT/runtime-requirements.txt
+          done
+
+      - name: Compile Pipelines
+        run: |
+          mkdir -p pipelines/compiled
+          poetry run python ./scripts/support/compile.py
+
+      - name: Upload Pipelines
+        run: |
+          poetry run python ./scripts/support/upload_pipelines.py

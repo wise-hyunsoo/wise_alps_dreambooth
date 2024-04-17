@@ -1,0 +1,42 @@
+name: On Release
+
+on:
+  release:
+    types: [ released ]
+
+jobs:
+  get-all-containerized-python-components:
+    name: Get All Containerized Python Components
+    # if this is the first push to the branch
+    if: ${{ github.event.before == '0000000000000000000000000000000000000000' }}
+    uses: ./.github/workflows/get-all-containerized-python-components.yml
+
+  get-changed-containerized-python-components:
+    name: Get Changed Containerized Python Components
+    # if this is not the first push to the branch
+    if: ${{ github.event.before != '0000000000000000000000000000000000000000' }}
+    uses: ./.github/workflows/get-changed-containerized-python-components.yml
+
+  build-all:
+    name: Build All
+    needs: get-all-containerized-python-components
+    uses: ./.github/workflows/build.yml
+    with:
+      workload-identity-provider: 'projects/468234880580/locations/global/workloadIdentityPools/prod-ai-ci-service-pool/providers/prod-ai-ci-service-github'
+      service-account: 'ai-lab-github-action@prod-ai-project.iam.gserviceaccount.com'
+      container-registry: 'asia-northeast3-docker.pkg.dev'
+      container-repository: 'asia-northeast3-docker.pkg.dev/prod-ai-project/kfp-components'
+      env: 'prod'
+      containerized-python-components: ${{ needs.get-all-containerized-python-components.outputs.components }}
+
+  build:
+    name: Build
+    needs: get-changed-containerized-python-components
+    uses: ./.github/workflows/build.yml
+    with:
+      workload-identity-provider: 'projects/468234880580/locations/global/workloadIdentityPools/prod-ai-ci-service-pool/providers/prod-ai-ci-service-github'
+      service-account: 'ai-lab-github-action@prod-ai-project.iam.gserviceaccount.com'
+      container-registry: 'asia-northeast3-docker.pkg.dev'
+      container-repository: 'asia-northeast3-docker.pkg.dev/prod-ai-project/kfp-components'
+      env: 'prod'
+      containerized-python-components: ${{ needs.get-changed-containerized-python-components.outputs.components }}

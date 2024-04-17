@@ -1,0 +1,6 @@
+# Changes here will be overwritten by Copier
+_commit: v1.2.0
+_src_path: https://github.com/kakaoent/alps.git
+default_location: us-central1
+ldap_id: wise.water
+project_name: wise-alps-dreambooth

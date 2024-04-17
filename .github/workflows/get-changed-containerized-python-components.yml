@@ -1,0 +1,63 @@
+name: Changed Containerized Python Components
+
+permissions:
+  id-token: write
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      head-ref:
+        required: false
+        type: string
+    outputs:
+      components:
+        description: "Changed Containerized Python Components"
+        value: ${{ jobs.get-changed-components.outputs.components }}
+
+jobs:
+  get-changed-components:
+    name: Get changed
+    outputs:
+      components: ${{ steps.changed-components.outputs.components }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.head-ref }}
+          fetch-depth: 0 # to fetch all history for all branches and tags.
+
+      - name: Set up python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v40
+        with:
+          files_separator: ' '
+          since_last_remote_commit: 'true'
+
+      - name: Get changed components
+        id: changed-components
+        run: |
+          changed_components=()
+          read -a CONTAINERIZED_PYTHON_COMPONENTS <<< $(python scripts/support/find_containerized_python_components.py 2>&1)
+          echo "CONTAINERIZED_PYTHON_COMPONENTS=${CONTAINERIZED_PYTHON_COMPONENTS[@]}"
+          for component in "${CONTAINERIZED_PYTHON_COMPONENTS[@]}"; do
+            IFS=,
+            set $component
+            FILE_NAME=$1
+            FILE_ROOT=$2
+            IMAGE_NAME_TAG=$3
+
+            if printf '%s\n' ${{ steps.changed-files.outputs.all_changed_and_modified_files }} | egrep -i ^"${FILE_ROOT}/${FILE_NAME}"; then
+              changed_components+=("$component")
+            fi
+          done
+          
+          echo "changed_components=${changed_components[@]}"
+
+          echo "components=${changed_components[@]}" >> $GITHUB_OUTPUT

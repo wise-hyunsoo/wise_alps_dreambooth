@@ -1,0 +1,18 @@
+from kfp import dsl
+
+from settings.settings import get_settings
+
+settings = get_settings()
+
+
+@dsl.pipeline(
+    name="{{pipeline_name}}",
+    description="",
+    pipeline_root=f"{settings.vertex_bucket}/pipelines",
+)
+def {{pipeline_name}}(
+    project: str,
+    location: str,
+):
+    pass
+

@@ -1,0 +1,2 @@
+- [Multi-stage builds](https://docs.docker.com/develop/develop-images/multistage-build/)는 containerized python component 에서 사용 불가능하다.
+- 따라서, containerized python component 에서는 반드시 이 위치에 있는 Dockerfile 형식대로 베이스 이미지를 구성하도록 한다. 

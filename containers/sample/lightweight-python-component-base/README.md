@@ -1,0 +1,3 @@
+- [Multi-stage builds](https://docs.docker.com/develop/develop-images/multistage-build/)로 Dockerfile 이 구성되어 있다.
+- Multi-stage 빌드 이미지는 containerized python component 에서 사용 불가능하다.
+- Multi-stage 빌드 이미지를 사용할 경우 실행 이미지가 가볍기 때문에 lightweight python component 에서는 Multi-stage 빌드 이미지 사용을 권장한다.

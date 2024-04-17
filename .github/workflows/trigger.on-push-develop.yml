@@ -1,0 +1,43 @@
+name: On Push Develop
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  get-all-containerized-python-components:
+    name: Get All Containerized Python Components
+    # if this is the first push to the branch
+    if: ${{ github.event.before == '0000000000000000000000000000000000000000' }}
+    uses: ./.github/workflows/get-all-containerized-python-components.yml
+
+  get-changed-containerized-python-components:
+    name: Get Changed Containerized Python Components
+    # if this is not the first push to the branch
+    if: ${{ github.event.before != '0000000000000000000000000000000000000000' }}
+    uses: ./.github/workflows/get-changed-containerized-python-components.yml
+
+  build-all:
+    name: Build All
+    needs: get-all-containerized-python-components
+    uses: ./.github/workflows/build.yml
+    with:
+      workload-identity-provider: 'projects/134040239977/locations/global/workloadIdentityPools/dev-ai-ci-service-service-pool/providers/dev-ai-ci-service-github'
+      service-account: 'ai-lab-github-action@dev-ai-project-357507.iam.gserviceaccount.com'
+      container-registry: 'asia-northeast3-docker.pkg.dev'
+      container-repository: 'asia-northeast3-docker.pkg.dev/dev-ai-project-357507/kfp-components'
+      env: 'dev'
+      containerized-python-components: ${{ needs.get-all-containerized-python-components.outputs.components }}
+
+  build:
+    name: Build
+    needs: get-changed-containerized-python-components
+    uses: ./.github/workflows/build.yml
+    with:
+      workload-identity-provider: 'projects/134040239977/locations/global/workloadIdentityPools/dev-ai-ci-service-service-pool/providers/dev-ai-ci-service-github'
+      service-account: 'ai-lab-github-action@dev-ai-project-357507.iam.gserviceaccount.com'
+      container-registry: 'asia-northeast3-docker.pkg.dev'
+      container-repository: 'asia-northeast3-docker.pkg.dev/dev-ai-project-357507/kfp-components'
+      env: 'dev'
+      containerized-python-components: ${{ needs.get-changed-containerized-python-components.outputs.components }}

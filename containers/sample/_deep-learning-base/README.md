@@ -1,0 +1,5 @@
+- Deep Learning Container 는 주요 데이터 과학 프레임워크, 라이브러리, 도구가 사전 설치된 Docker 컨테이너다.
+- https://cloud.google.com/deep-learning-containers/docs/overview
+- 특히 Vertex AI Workbench 의 노트북 파일(ipynb)을 custom training job 으로 실행할 수 있는 nbexecutor 가 포함되어 있다.
+- Vertex AI Workbench 의 managed notebook 이나 instance notebook 에서 [executor](https://cloud.google.com/vertex-ai/docs/workbench/managed/executor, "executor link")를 이용할 때 이 컨테이너를 지정해서 사용할 수 있다. 
+- conda 환경에서 GPU 관련 코드가 돌아가고 있기 때문에 poetry 파이썬 환경을 주입하지 않고, poetry.lock 으로부터 requirments.txt 을 생성하여 conda 환경에 인스톨한다.
